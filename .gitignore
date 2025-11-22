@@ -191,7 +191,7 @@ gradle-app.setting
 *.hprof
 
 *.yml
-!.github/workflows/deploy.yml
+!.github/workflows/backend-cd.yml
 *.png
 *.iml
 
