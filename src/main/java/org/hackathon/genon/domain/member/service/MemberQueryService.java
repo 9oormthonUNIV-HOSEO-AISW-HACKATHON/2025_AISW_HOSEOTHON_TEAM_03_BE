@@ -18,7 +18,7 @@ public class MemberQueryService {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new CoreException(ErrorStatus.NOT_FOUND_MEMBER));
 
-      return MemberProfileResponse.from(member);
+        return MemberProfileResponse.from(member);
     }
 
 }
