@@ -14,39 +14,39 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Quiz extends BaseEntity {
 
-    @Column(name = "game_type", length = 20, nullable = false)
+    @Column(name = "quiz_type", length = 20, nullable = false)
     private String quizType;  // ex) "1v1"
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", length = 20, nullable = false)
-    private QuizStatus status;  // WAITING / IN_PROGRESS / FINISHED
+    @Column(name = "quiz_status", length = 20, nullable = false)
+    private QuizStatus quizStatus;  // WAITING / IN_PROGRESS / FINISHED
 
     @Column(name = "ended_at")
     private LocalDateTime endedAt;
 
     @Builder
-    private Quiz(String quizType, QuizStatus status) {
+    private Quiz(String quizType, QuizStatus quizStatus) {
         this.quizType = quizType;
-        this.status = status;
+        this.quizStatus = quizStatus;
     }
 
-    public static Quiz create(String quizType, QuizStatus status) {
+    public static Quiz create(String quizType, QuizStatus quizStatus) {
         return Quiz.builder()
                 .quizType(quizType)
-                .status(status)
+                .quizStatus(quizStatus)
                 .build();
     }
 
     public void start() {
-        if (this.status == QuizStatus.FINISHED) {
+        if (this.quizStatus == QuizStatus.FINISHED) {
             throw new IllegalStateException("종료된 게임은 시작할 수 없습니다.");
         }
-        this.status = QuizStatus.IN_PROGRESS;
+        this.quizStatus = QuizStatus.IN_PROGRESS;
     }
 
     public void finish() {
-        if (this.status != QuizStatus.FINISHED) {
-            this.status = QuizStatus.FINISHED;
+        if (this.quizStatus != QuizStatus.FINISHED) {
+            this.quizStatus = QuizStatus.FINISHED;
             this.endedAt = LocalDateTime.now();
         }
     }
