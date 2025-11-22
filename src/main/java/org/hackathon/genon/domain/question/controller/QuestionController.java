@@ -20,11 +20,11 @@ public class QuestionController extends QuestionDocsController {
     private final QuestionQueryService questionQueryService;
 
     // NOTE: 임시 API, 추후 삭제 예정
-    @PostMapping("/generate")
-    public ResponseEntity<List<QuestionResponseDto>> generateQuestionsByAi() {
-        List<QuestionResponseDto> result = questionAiService.generateAndReturnQuestionsWithOptions();
-        return ResponseEntity.ok(result);
-    }
+//    @PostMapping("/generate")
+//    public ResponseEntity<List<QuestionResponseDto>> generateQuestionsByAi() {
+//        List<QuestionResponseDto> result = questionAiService.generateAndReturnQuestionsWithOptions();
+//        return ResponseEntity.ok(result);
+//    }
 
     @Override
     @GetMapping("/v1/quiz/{quizId}/questions/results")

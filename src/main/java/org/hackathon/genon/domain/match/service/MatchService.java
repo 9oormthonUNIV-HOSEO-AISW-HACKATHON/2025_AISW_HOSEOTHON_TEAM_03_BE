@@ -1,10 +1,11 @@
 package org.hackathon.genon.domain.match.service;
 
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hackathon.genon.domain.match.dto.MatchResult;
 import org.hackathon.genon.domain.member.enums.GenerationRole;
+import org.hackathon.genon.domain.quiz.entity.Quiz;
+import org.hackathon.genon.domain.quiz.repository.QuizRepository;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 public class MatchService {
 
     private final RedisTemplate<String, Object> redisTemplate;
+    private final QuizRepository quizRepository;
 
     public MatchResult joinMatch(Long memberId, GenerationRole generationRole) {
 
@@ -37,17 +39,18 @@ public class MatchService {
         }
 
         // 매칭 성사 → 방 생성
-        String roomId = UUID.randomUUID().toString();
-        String roomKey = "match:room:" + roomId;
+        Quiz quiz = quizRepository.save(Quiz.createOneToOne());
+        Long quizId = quiz.getId();
+        String quizKey = "match:room:" + quizId;
 
-        redisTemplate.opsForHash().put(roomKey, "member1", memberId);
-        redisTemplate.opsForHash().put(roomKey, "member2", opponentId);
-        redisTemplate.opsForHash().put(roomKey, "accept:" + memberId, false);
-        redisTemplate.opsForHash().put(roomKey, "accept:" + opponentId, false);
+        redisTemplate.opsForHash().put(quizKey, "member1", memberId);
+        redisTemplate.opsForHash().put(quizKey, "member2", opponentId);
+        redisTemplate.opsForHash().put(quizKey, "accept:" + memberId, false);
+        redisTemplate.opsForHash().put(quizKey, "accept:" + opponentId, false);
 
-        log.info("[MATCH] room created {}: {} <-> {}", roomId, memberId, opponentId);
+        log.info("[MATCH] room created {}: {} <-> {}", quizId, memberId, opponentId);
 
-        return MatchResult.matched(roomId, opponentId);
+        return MatchResult.matched(quizId, opponentId);
     }
 
     private Long toLong(Object value) {

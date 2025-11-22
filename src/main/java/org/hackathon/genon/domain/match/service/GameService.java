@@ -23,25 +23,25 @@ public class GameService {
      * 매칭 성사 시 양쪽 유저에게 MATCH_FOUND 메시지 전송
      */
     public void onMatchCreated(MatchResult result) {
-        String roomId = result.getRoomId();
-        String roomKey = "match:room:" + roomId;
+        Long quizId = result.getQuizId();
+        String quizKey = "match:room:" + quizId;
         HashOperations<String, Object, Object> ops = redisTemplate.opsForHash();
 
-        Long member1 = toLong(ops.get(roomKey, "member1"));
-        Long member2 = toLong(ops.get(roomKey, "member2"));
+        Long member1 = toLong(ops.get(quizKey, "member1"));
+        Long member2 = toLong(ops.get(quizKey, "member2"));
 
         if (member1 == null || member2 == null) {
-            log.warn("[GAME] room 정보가 비정상입니다. roomId={}", roomId);
+            log.warn("[GAME] room 정보가 비정상입니다. quizId={}", quizId);
             return;
         }
 
         String msgTo1 = """
-            {"type":"MATCH_FOUND","roomId":"%s","opponentId":%d}
-            """.formatted(roomId, member2);
+            {"type":"MATCH_FOUND","quizId":"%s","opponentId":%d}
+            """.formatted(quizId, member2);
 
         String msgTo2 = """
-            {"type":"MATCH_FOUND","roomId":"%s","opponentId":%d}
-            """.formatted(roomId, member1);
+            {"type":"MATCH_FOUND","quizId":"%s","opponentId":%d}
+            """.formatted(quizId, member1);
 
         sessionService.sendTo(member1, msgTo1);
         sessionService.sendTo(member2, msgTo2);
@@ -50,16 +50,16 @@ public class GameService {
     /**
      * 수락/거절 처리
      */
-    public void handleAccept(String roomId, Long memberId, boolean accept) {
+    public void handleAccept(Long quizId, Long memberId, boolean accept) {
 
-        String roomKey = "match:room:" + roomId;
+        String roomKey = "match:room:" + quizId;
         HashOperations<String, Object, Object> ops = redisTemplate.opsForHash();
 
         Long member1 = toLong(ops.get(roomKey, "member1"));
         Long member2 = toLong(ops.get(roomKey, "member2"));
 
         if (member1 == null || member2 == null) {
-            log.warn("[GAME] handleAccept - room 정보 없음. roomId={}", roomId);
+            log.warn("[GAME] handleAccept - room 정보 없음. quizId={}", quizId);
             return;
         }
 
@@ -70,8 +70,8 @@ public class GameService {
          */
         if (!accept) {
             String rejectMsg = """
-                {"type":"MATCH_RESULT","roomId":"%s","result":"REJECTED","by":%d}
-                """.formatted(roomId, memberId);
+                {"type":"MATCH_RESULT","quizId":"%s","result":"REJECTED","by":%d}
+                """.formatted(quizId, memberId);
 
             sessionService.sendTo(memberId, rejectMsg);
             sessionService.sendTo(opponentId, rejectMsg);
@@ -84,8 +84,8 @@ public class GameService {
          * 2. 수락한 경우 → 실시간 알림
          */
         String acceptMsg = """
-            {"type":"ACCEPT_STATUS","roomId":"%s","by":%d,"status":"ACCEPT"}
-            """.formatted(roomId, memberId);
+            {"type":"ACCEPT_STATUS","quizId":"%s","by":%d,"status":"ACCEPT"}
+            """.formatted(quizId, memberId);
 
         sessionService.sendTo(memberId, acceptMsg);
         sessionService.sendTo(opponentId, acceptMsg);
@@ -102,40 +102,40 @@ public class GameService {
 
             // 3-1. 매칭 성사 알림 먼저 보내기
             String successMsgFor1 = """
-        {"type":"MATCH_SUCCESS","roomId":"%s","opponentId":%d}
-        """.formatted(roomId, member2);
+        {"type":"MATCH_SUCCESS","quizId":"%s","opponentId":%d}
+        """.formatted(quizId, member2);
 
             String successMsgFor2 = """
-        {"type":"MATCH_SUCCESS","roomId":"%s","opponentId":%d}
-        """.formatted(roomId, member1);
+        {"type":"MATCH_SUCCESS","quizId":"%s","opponentId":%d}
+        """.formatted(quizId, member1);
 
             sessionService.sendTo(member1, successMsgFor1);
             sessionService.sendTo(member2, successMsgFor2);
 
             // 3-2. 문제 생성
             List<QuestionResponseDto> questions =
-                    questionAiService.generateAndReturnQuestionsWithOptions();
+                    questionAiService.generateAndReturnQuestionsWithOptions(quizId);
 
             // 3-3. GAME_START JSON 생성
-            String gameStartJson = buildGameStartJson(roomId, questions);
+            String gameStartJson = buildGameStartJson(quizId, questions);
 
             // 3-4. 양쪽에게 게임 시작 메시지 전송
             sessionService.sendTo(member1, gameStartJson);
             sessionService.sendTo(member2, gameStartJson);
 
-            log.info("[GAME] 매칭 최종 성사 + 게임 시작! roomId={} {} <> {}",
-                    roomId, member1, member2);
+            log.info("[GAME] 매칭 최종 성사 + 게임 시작! quizId={} {} <> {}",
+                    quizId, member1, member2);
         }
     }
 
     /**
      * GAME_START JSON 생성
      */
-    private String buildGameStartJson(String roomId, List<QuestionResponseDto> questions) {
+    private String buildGameStartJson(Long quizId, List<QuestionResponseDto> questions) {
         StringBuilder sb = new StringBuilder();
         sb.append("{");
         sb.append("\"type\":\"GAME_START\",");
-        sb.append("\"roomId\":\"").append(roomId).append("\",");
+        sb.append("\"quizId\":\"").append(quizId).append("\",");
         sb.append("\"questions\":[");
 
         for (int i = 0; i < questions.size(); i++) {
