@@ -38,6 +38,6 @@ public abstract class QuizHistoryDocsController {
                     ErrorStatus.INTERNAL_SERVER_ERROR
             }
     )
-    public abstract ResponseEntity<QuizResultPairResponse> getQuizHistory(Long quizId);
+    public abstract ResponseEntity<QuizResultPairResponse> getQuizHistory(Long quizId, Long memberId);
 
 }

@@ -89,6 +89,10 @@ public class Member extends BaseEntity {
         this.generationRole = generationRole;
     }
 
+    public boolean isMe(Long memberId) {
+        return getId().equals(memberId);
+    }
+
     private void updateGrade(Long points) {
         grade = Grade.isUpdate(points);
     }
