@@ -7,7 +7,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hackathon.genon.domain.match.dto.MatchResult;
-import org.hackathon.genon.domain.question.dto.QuestionResponseDto;
+import org.hackathon.genon.domain.question.dto.QuestionResponse;
 import org.hackathon.genon.domain.question.service.QuestionAiService;
 import org.hackathon.genon.global.error.CoreException;
 import org.springframework.data.redis.core.HashOperations;
@@ -118,7 +118,7 @@ public class GameService {
             sessionService.sendTo(member2, successMsgFor2);
 
             // 3-2. 문제 생성
-            List<QuestionResponseDto> questions =
+            List<QuestionResponse> questions =
                     questionAiService.generateAndReturnQuestionsWithOptions(quizId);
 
             // 3-3. GAME_START JSON 생성
@@ -137,14 +137,14 @@ public class GameService {
      * GAME_START JSON 생성
      */
 
-    private String buildGameStartJson(Long quizId, List<QuestionResponseDto> questions) {
+    private String buildGameStartJson(Long quizId, List<QuestionResponse> questions) {
         ObjectNode root = objectMapper.createObjectNode();
         root.put("type", "GAME_START");
         root.put("quizId", quizId);
 
         ArrayNode questionsArray = objectMapper.createArrayNode();
 
-        for (QuestionResponseDto q : questions) {
+        for (QuestionResponse q : questions) {
             ObjectNode questionNode = objectMapper.createObjectNode();
             questionNode.put("id", q.id());
             questionNode.put("category", q.category());

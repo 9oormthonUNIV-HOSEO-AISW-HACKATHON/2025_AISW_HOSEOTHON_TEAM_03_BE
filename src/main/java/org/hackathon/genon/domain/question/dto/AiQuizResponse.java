@@ -9,11 +9,11 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class AiQuizResponse {
 
-    private List<AiQuizQuestionDto> questions;
+    private List<AiQuizQuestion> questions;
 
     @Getter
     @NoArgsConstructor
-    public static class AiQuizQuestionDto {
+    public static class AiQuizQuestion {
         private String category;      // "MZ" or "SENIOR"
         private String content;       // 문제 내용
         private String explanation;   // 해설
