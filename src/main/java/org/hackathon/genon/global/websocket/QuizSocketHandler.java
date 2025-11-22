@@ -16,6 +16,7 @@ import org.hackathon.genon.domain.member.repository.MemberRepository;
 import org.hackathon.genon.domain.question.entity.Question;
 import org.hackathon.genon.domain.question.repository.QuestionRepository;
 import org.hackathon.genon.domain.quiz.repository.QuizOptionRepository;
+import org.hackathon.genon.domain.quizhistory.service.QuizHistoryCommandService;
 import org.hackathon.genon.domain.quizoption.entity.QuizOption;
 import org.hackathon.genon.global.error.CoreException;
 import org.hackathon.genon.global.security.jwt.JwtProvider;
@@ -43,6 +44,7 @@ public class QuizSocketHandler extends TextWebSocketHandler {
     private final MemberRepository memberRepository;
     private final ObjectMapper objectMapper;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final QuizHistoryCommandService quizHistoryCommandService;
 
     // ==========================
     //  연결 처리
@@ -198,11 +200,8 @@ public class QuizSocketHandler extends TextWebSocketHandler {
 
         Long opponentId = memberId.equals(member1) ? member2 : member1;
 
-        // ----------------------
-        // ① 정답 검증 로직 (그대로)
-        // ----------------------
+        // ① 정답 검증
         boolean isCorrect = false;
-
         try {
             if (answerIndex >= 0) {
                 Question question = questionRepository.findById(questionId)
@@ -219,9 +218,7 @@ public class QuizSocketHandler extends TextWebSocketHandler {
             isCorrect = false;
         }
 
-        // ----------------------
-        // ② 점수 갱신 (그대로)
-        // ----------------------
+        // ② 점수 갱신
         Long score1 = toLong(ops.get(roomKey, "score:" + member1));
         Long score2 = toLong(ops.get(roomKey, "score:" + member2));
         if (score1 == null) score1 = 0L;
@@ -235,9 +232,7 @@ public class QuizSocketHandler extends TextWebSocketHandler {
             }
         }
 
-        // ----------------------
-        // ③ 진행도 업데이트 로직 (단순히 +1만)
-        // ----------------------
+        // ③ 진행도 업데이트
         Long totalQuestions = toLong(ops.get(roomKey, "totalQuestions"));
         if (totalQuestions == null) totalQuestions = 5L;
 
@@ -248,30 +243,39 @@ public class QuizSocketHandler extends TextWebSocketHandler {
         Long oppProgress = toLong(ops.get(roomKey, "progress:" + opponentId));
         if (oppProgress == null) oppProgress = 0L;
 
-        // ----------------------
         // 🔥 ④ 마지막 사람이 마지막 문제까지 풀었는지 체크
-        // ----------------------
         boolean isLastAnswer =
                 myProgress >= totalQuestions && oppProgress >= totalQuestions;
 
         String eventType = isLastAnswer ? "ANSWER_DONE" : "ANSWER_RESULT";
 
-        // ----------------------
-        // ⑤ JSON 생성 및 전송
-        // ----------------------
-        String answerJson = """
-        {
-          "type": "%s",
-          "quizId": "%s",
-          "questionId": %d,
-          "answeredBy": %d,
-          "correct": %s,
-          "score": {
-            "member1": %d,
-            "member2": %d
-          }
+        // 🔥 마지막 문제까지 다 풀었으면 히스토리 저장
+        if (isLastAnswer) {
+            Long quizId = Long.parseLong(roomId); // roomId == quizId 문자열이라고 가정
+            quizHistoryCommandService.recordFinalResult(
+                    quizId,
+                    member1, member2,
+                    score1.intValue(), score2.intValue()
+            );
+
+            // 필요하면 여기서 Redis 방 정리
+            // redisTemplate.delete(roomKey);
         }
-        """.formatted(
+
+        // ⑤ JSON 생성 및 전송 (기존 그대로)
+        String answerJson = """
+    {
+      "type": "%s",
+      "quizId": "%s",
+      "questionId": %d,
+      "answeredBy": %d,
+      "correct": %s,
+      "score": {
+        "member1": %d,
+        "member2": %d
+      }
+    }
+    """.formatted(
                 eventType, roomId, questionId, memberId,
                 isCorrect, score1, score2
         );
