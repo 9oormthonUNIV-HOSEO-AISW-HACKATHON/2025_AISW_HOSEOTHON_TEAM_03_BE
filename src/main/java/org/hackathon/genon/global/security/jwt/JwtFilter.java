@@ -27,7 +27,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtFilter extends OncePerRequestFilter {
 
     private static final List<String> EXCLUDE_PATHS = List.of(
-            "/", "/error", "/v1/auth/**",
+            "/", "/error", "/v1/auth/**", "/v1/members/register",
             "/swagger/**", "/swagger-ui/**", "/v3/api-docs/**"
     );
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
@@ -38,18 +38,9 @@ public class JwtFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        String method = request.getMethod();
 
-        // 기존 제외 경로
-        boolean isExcludePath = EXCLUDE_PATHS.stream()
+        return EXCLUDE_PATHS.stream()
                 .anyMatch(exclude -> PATH_MATCHER.match(exclude, path));
-
-        // /v1/members 경로는 POST 요청인 경우 필터 적용, 그렇지 않으면 필터 제외
-        if (PATH_MATCHER.match("/v1/members", path)) {
-            return !"POST".equalsIgnoreCase(method); // POST면 필터 적용(false 반환), 그 외는 필터 제외(true 반환)
-        }
-
-        return isExcludePath;
     }
 
     @Override

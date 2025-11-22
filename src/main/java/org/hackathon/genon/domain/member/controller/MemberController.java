@@ -16,7 +16,7 @@ public class MemberController extends MemberDocsController {
     private final MemberCommandService memberCommandService;
 
     @Override
-    @PostMapping("/v1/members")
+    @PostMapping("/v1/members/register")
     public ResponseEntity<Void> create(@Valid @RequestBody MemberCreateRequest request) {
         memberCommandService.register(request.toCreateProfile());
 
