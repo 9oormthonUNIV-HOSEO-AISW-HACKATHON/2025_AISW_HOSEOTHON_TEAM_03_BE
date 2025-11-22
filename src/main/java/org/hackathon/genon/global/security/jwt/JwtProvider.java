@@ -68,6 +68,13 @@ public class JwtProvider {
         );
     }
 
+    public Long getMemberIdFromToken(String token) {
+        Authentication authentication = getAuthentication(token);
+
+        return extractMemberId(authentication);
+    }
+
+
     public boolean isValidateToken(String token) {
         try {
             getClaimsFromToken(token);
@@ -134,5 +141,20 @@ public class JwtProvider {
             throw new ExpiredJwtException(null, claims, "만료된 JWT 입니다.");
         }
     }
+
+    private Long extractMemberId(Authentication authentication) {
+        // 인증 정보가 없거나 인증되지 않은 경우
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+        // Long 으로 파싱 시도
+        try {
+            return Long.parseLong(authentication.getName());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+
+    }
+
 
 }
