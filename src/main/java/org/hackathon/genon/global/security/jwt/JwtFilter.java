@@ -28,7 +28,8 @@ public class JwtFilter extends OncePerRequestFilter {
 
     private static final List<String> EXCLUDE_PATHS = List.of(
             "/", "/error", "/v1/auth/**", "/v1/members/register",
-            "/swagger/**", "/swagger-ui/**", "/v3/api-docs/**"
+            "/swagger/**", "/swagger-ui/**", "/v3/api-docs/**",
+            "/quiz/**"
     );
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
