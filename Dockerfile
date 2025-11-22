@@ -1,5 +1,4 @@
-# ===== 런타임 이미지(경량 JRE 21) =====
-FROM eclipse-temurin:21-jre-alpine
+FROM bellsoft/liberica-openjdk-debian:21
 
 # 컨테이너 안 작업 디렉터리
 WORKDIR /app
@@ -14,4 +13,4 @@ COPY ${JAR_FILE} app.jar
 EXPOSE 8080
 
 # 필요하면 JVM 옵션도 여기에 추가 가능 (-Xms, -Xmx 등)
-ENTRYPOINT ["java","-jar","/app/app.jar"]
+ENTRYPOINT ["java","-jar", "/app/app.jar"]
