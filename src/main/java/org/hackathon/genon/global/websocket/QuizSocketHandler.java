@@ -183,8 +183,8 @@ public class QuizSocketHandler extends TextWebSocketHandler {
     }
 
     // ==========================
-    //  실제 정답 검증 + 점수 계산
-    // ==========================
+//  실제 정답 검증 + 점수 계산 (+ MZ / SENIOR 구분 추가)
+// ==========================
     public void handleAnswer(String roomId, Long memberId, Long questionId, int answerIndex) {
         String roomKey = "match:room:" + roomId;
         HashOperations<String, Object, Object> ops = redisTemplate.opsForHash();
@@ -198,7 +198,7 @@ public class QuizSocketHandler extends TextWebSocketHandler {
         Long opponentId = memberId.equals(member1) ? member2 : member1;
 
         // ----------------------
-        // ① 정답 검증 로직 (그대로)
+        // ① 정답 검증 로직
         // ----------------------
         boolean isCorrect = false;
 
@@ -219,7 +219,7 @@ public class QuizSocketHandler extends TextWebSocketHandler {
         }
 
         // ----------------------
-        // ② 점수 갱신 (그대로)
+        // ② 점수 갱신
         // ----------------------
         Long score1 = toLong(ops.get(roomKey, "score:" + member1));
         Long score2 = toLong(ops.get(roomKey, "score:" + member2));
@@ -235,7 +235,7 @@ public class QuizSocketHandler extends TextWebSocketHandler {
         }
 
         // ----------------------
-        // ③ 진행도 업데이트 로직 (단순히 +1만)
+        // ③ 진행도 업데이트
         // ----------------------
         Long totalQuestions = toLong(ops.get(roomKey, "totalQuestions"));
         if (totalQuestions == null) totalQuestions = 5L;
@@ -248,7 +248,7 @@ public class QuizSocketHandler extends TextWebSocketHandler {
         if (oppProgress == null) oppProgress = 0L;
 
         // ----------------------
-        // 🔥 ④ 마지막 사람이 마지막 문제까지 풀었는지 체크
+        // 🔥 마지막 문제까지 다 푼 상태인지 체크
         // ----------------------
         boolean isLastAnswer =
                 myProgress >= totalQuestions && oppProgress >= totalQuestions;
@@ -256,28 +256,59 @@ public class QuizSocketHandler extends TextWebSocketHandler {
         String eventType = isLastAnswer ? "ANSWER_DONE" : "ANSWER_RESULT";
 
         // ----------------------
+        // ④ MZ / SENIOR 역할 정보 조회
+        // ----------------------
+        Member m1 = memberRepository.findById(member1)
+                .orElseThrow(() -> new IllegalArgumentException("member1 없음: " + member1));
+        Member m2 = memberRepository.findById(member2)
+                .orElseThrow(() -> new IllegalArgumentException("member2 없음: " + member2));
+
+        GenerationRole role1 = m1.getGenerationRole(); // MZ 또는 SENIOR
+        GenerationRole role2 = m2.getGenerationRole();
+
+        // 답변한 사람의 역할
+        String answeredByRole =
+                memberId.equals(member1) ? role1.name() : role2.name(); // "MZ" / "SENIOR"
+
+        // 역할 기준 점수 (프론트에서 쓰기 편하게)
+        long mzScore;
+        long seniorScore;
+        if (role1 == GenerationRole.MZ) {
+            mzScore = score1;
+            seniorScore = score2;
+        } else {
+            mzScore = score2;
+            seniorScore = score1;
+        }
+
+        // ----------------------
         // ⑤ JSON 생성 및 전송
         // ----------------------
         String answerJson = """
-        {
-          "type": "%s",
-          "roomId": "%s",
-          "questionId": %d,
-          "answeredBy": %d,
-          "correct": %s,
-          "score": {
-            "member1": %d,
-            "member2": %d
-          }
-        }
-        """.formatted(
+    {
+      "type": "%s",
+      "roomId": "%s",
+      "questionId": %d,
+      "answeredBy": %d,
+      "answeredByRole": "%s",
+      "correct": %s,
+      "score": {
+        "MZ": %d,
+        "SENIOR": %d
+      }
+    }
+    """.formatted(
                 eventType, roomId, questionId, memberId,
-                isCorrect, score1, score2
+                answeredByRole,
+                isCorrect,
+                score1, score2,
+                mzScore, seniorScore
         );
 
         sessionService.sendTo(member1, answerJson);
         sessionService.sendTo(member2, answerJson);
     }
+
 
 
     private Long toLong(Object value) {
