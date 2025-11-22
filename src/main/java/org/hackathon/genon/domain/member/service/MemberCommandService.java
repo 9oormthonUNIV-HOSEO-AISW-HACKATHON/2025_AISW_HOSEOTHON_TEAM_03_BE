@@ -16,16 +16,16 @@ public class MemberCommandService {
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public Long register(MemberCreateProfile memberCreateProfile) {
+    public void register(MemberCreateProfile memberCreateProfile) {
         validateNewMember(memberCreateProfile);
 
-        return memberRepository.save(Member.create(
+        memberRepository.save(Member.create(
                         memberCreateProfile.loginId(),
                         passwordEncoder.encode(memberCreateProfile.password()),
-                        memberCreateProfile.nickname()
+                        memberCreateProfile.nickname(),
+                        memberCreateProfile.generationRole()
                 )
-        ).getId();
-
+        );
     }
 
 

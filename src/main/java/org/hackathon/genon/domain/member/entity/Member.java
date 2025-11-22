@@ -8,6 +8,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hackathon.genon.domain.member.enums.GenerationRole;
 import org.hackathon.genon.domain.member.enums.Grade;
 import org.hackathon.genon.domain.member.enums.Role;
 import org.hackathon.genon.global.entity.BaseEntity;
@@ -36,6 +37,10 @@ public class Member extends BaseEntity {
 
     @Enumerated(value = EnumType.STRING)
     @Column(nullable = false)
+    private GenerationRole generationRole;
+
+    @Enumerated(value = EnumType.STRING)
+    @Column(nullable = false)
     private Grade grade;
 
     @Column(nullable = false)
@@ -46,13 +51,15 @@ public class Member extends BaseEntity {
     public static Member create(
             String loginId,
             String password,
-            String nickname
+            String nickname,
+            GenerationRole generationRole
     ) {
         Member member = new Member();
         member.loginId = loginId;
         member.password = password;
         member.nickname = nickname;
         member.role = Role.ROLE_MEMBER;
+        member.generationRole = generationRole;
         member.grade = Grade.BRONZE;
         member.points = 0L;
         member.refreshToken = null;
@@ -76,6 +83,10 @@ public class Member extends BaseEntity {
     public void updateRefreshToken(String refreshToken) {
         this.refreshToken = refreshToken;
 
+    }
+
+    public void updateGenerationRole(GenerationRole generationRole) {
+        this.generationRole = generationRole;
     }
 
     private void updateGrade(Long points) {
