@@ -16,6 +16,7 @@ public class QuestionController {
 
     private final QuestionAiService questionAiService;
 
+    // NOTE: TEST 용 API - 실제 운영 환경에서는 제거 필요
     @PostMapping("/generate")
     public ResponseEntity<List<QuestionResponseDto>> generateQuestionsByAi() {
         List<QuestionResponseDto> result = questionAiService.generateAndReturnQuestionsWithOptions();
