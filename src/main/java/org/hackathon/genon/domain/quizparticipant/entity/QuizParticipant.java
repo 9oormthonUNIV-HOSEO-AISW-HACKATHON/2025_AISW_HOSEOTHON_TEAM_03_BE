@@ -1,7 +1,14 @@
 package org.hackathon.genon.domain.quizparticipant.entity;
 
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.hackathon.genon.domain.member.entity.Member;
 import org.hackathon.genon.domain.quiz.entity.Quiz;
 import org.hackathon.genon.global.entity.BaseEntity;

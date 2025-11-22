@@ -1,6 +1,6 @@
 package org.hackathon.genon.domain.ranking;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Random;
 import org.hackathon.genon.domain.member.entity.Member;
