@@ -2,6 +2,8 @@ package org.hackathon.genon.domain.member.controller;
 
 import static org.hackathon.genon.global.error.ErrorStatus.BAD_REQUEST;
 import static org.hackathon.genon.global.error.ErrorStatus.INTERNAL_SERVER_ERROR;
+import static org.hackathon.genon.global.error.ErrorStatus.NOT_FOUND;
+import static org.hackathon.genon.global.error.ErrorStatus.UNAUTHORIZED_ERROR;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -10,9 +12,12 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.hackathon.genon.domain.member.controller.dto.MemberCreateRequest;
+import org.hackathon.genon.domain.member.service.dto.MemberProfileResponse;
+import org.hackathon.genon.global.annotation.AuthMember;
 import org.hackathon.genon.global.swagger.ApiExceptions;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 
 @Tag(name = "Member Docs", description = "Member API 문서")
 public abstract class MemberDocsController {
@@ -43,5 +48,30 @@ public abstract class MemberDocsController {
             INTERNAL_SERVER_ERROR
     })
     public abstract ResponseEntity<Void> create(MemberCreateRequest request);
+
+
+    @Operation(
+            summary = "회원 프로필 조회 - JWT O",
+            description = """
+                    ### 회원의 프로필 정보를 조회합니다.
+                    - JWT 인증이 필요합니다.
+                    - 성공 시 200 OK 상태 코드와 함께 회원 프로필 정보를 응답합니다.
+                    """
+    )
+    @ApiResponse(
+            responseCode = "200",
+            description = "회원 프로필 조회 성공",
+            content = @Content(
+                    mediaType = MediaType.APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = MemberProfileResponse.class)
+            )
+    )
+    @ApiExceptions(values = {
+            BAD_REQUEST,
+            UNAUTHORIZED_ERROR,
+            NOT_FOUND,
+            INTERNAL_SERVER_ERROR
+    })
+    public abstract ResponseEntity<MemberProfileResponse> getProfile(Long memberId);
 
 }
