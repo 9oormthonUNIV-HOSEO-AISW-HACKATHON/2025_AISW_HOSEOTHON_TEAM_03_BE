@@ -18,7 +18,7 @@ public class GameService {
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final SessionService sessionService;
-    private final QuestionAiService questionAiService; // ★ 추가
+    private final QuestionAiService questionAiService;
 
     /**
      * 매칭 성사 시 양쪽 유저에게 MATCH_FOUND 메시지 전송

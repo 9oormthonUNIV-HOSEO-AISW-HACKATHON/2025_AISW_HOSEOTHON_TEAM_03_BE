@@ -2,6 +2,7 @@ package org.hackathon.genon.global.websocket;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,7 +13,13 @@ import org.hackathon.genon.domain.match.service.SessionService;
 import org.hackathon.genon.domain.member.entity.Member;
 import org.hackathon.genon.domain.member.enums.GenerationRole;
 import org.hackathon.genon.domain.member.repository.MemberRepository;
+import org.hackathon.genon.domain.question.entity.Question;
+import org.hackathon.genon.domain.question.repository.QuestionRepository;
+import org.hackathon.genon.domain.quiz.repository.QuizOptionRepository;
+import org.hackathon.genon.domain.quizoption.entity.QuizOption;
 import org.hackathon.genon.global.security.jwt.JwtProvider;
+import org.springframework.data.redis.core.HashOperations;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -28,49 +35,46 @@ public class QuizSocketHandler extends TextWebSocketHandler {
 
     private final JwtProvider jwtProvider;
     private final SessionService sessionService;
-
-    // ★ WebSocket으로 매칭 요청/수락을 처리하기 위해 추가 의존성
+    private final QuestionRepository questionRepository;
+    private final QuizOptionRepository quizOptionRepository;
     private final MatchService matchService;
     private final GameService gameService;
     private final MemberRepository memberRepository;
     private final ObjectMapper objectMapper;
+    private final RedisTemplate<String, Object> redisTemplate;
 
+    // ==========================
+    //  연결 처리
+    // ==========================
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        // 1. URL 쿼리 파라미터에서 JWT 토큰 추출
         String token = extractTokenFromQuery(session);
 
-        // 2. 토큰 검증
         if (token == null || !jwtProvider.isValidateToken(token)) {
-            log.warn("⚠️ 유효하지 않은 토큰으로 연결 시도, 연결을 종료합니다.");
+            log.warn("⚠️ 유효하지 않은 토큰으로 연결 시도, 연결 종료");
             session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Invalid Token"));
             return;
         }
 
-        // 3. 토큰에서 memberId 추출
         Long memberId = jwtProvider.getMemberIdFromToken(token);
 
-        // 4. 세션 등록 및 속성에 memberId 저장
         sessionService.register(memberId, session);
         session.getAttributes().put("memberId", memberId);
 
         log.info("✅ WebSocket 연결 성공: memberId={}, sessionId={}", memberId, session.getId());
     }
 
-    // [헬퍼 메서드] URL 쿼리에서 토큰 추출
     private String extractTokenFromQuery(WebSocketSession session) {
         String query = Objects.requireNonNull(session.getUri()).getQuery(); // "accessToken=eyJ..."
         if (query != null && query.startsWith(ACCESS_TOKEN_PREFIX)) {
-            return query.substring(ACCESS_TOKEN_PREFIX.length()); // "eyJ..."
+            return query.substring(ACCESS_TOKEN_PREFIX.length());
         }
         return null;
     }
 
-    /**
-     * 클라이언트가 보내는 WebSocket 메시지 처리
-     * - MATCH_JOIN   : 매칭 참여
-     * - MATCH_ACCEPT : 매칭 수락/거절
-     */
+    // ==========================
+    //  메시지 처리
+    // ==========================
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
@@ -102,6 +106,7 @@ public class QuizSocketHandler extends TextWebSocketHandler {
         switch (type) {
             case "MATCH_JOIN" -> handleMatchJoin(session, memberId);
             case "MATCH_ACCEPT" -> handleMatchAccept(root, memberId);
+            case "ANSWER_SUBMIT" -> handleAnswerSubmit(root, memberId);
             default -> {
                 log.warn("알 수 없는 type: {}", type);
                 session.sendMessage(new TextMessage("{\"type\":\"ERROR\",\"message\":\"UNKNOWN_TYPE\"}"));
@@ -109,9 +114,9 @@ public class QuizSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    /**
-     * MATCH_JOIN 처리: 큐에 넣거나, 상대가 있으면 room 생성 후 MATCH_FOUND 실시간 전파
-     */
+    // ==========================
+    //  MATCH_JOIN
+    // ==========================
     private void handleMatchJoin(WebSocketSession session, Long memberId) throws Exception {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("회원이 존재하지 않습니다. id=" + memberId));
@@ -120,7 +125,6 @@ public class QuizSocketHandler extends TextWebSocketHandler {
 
         MatchResult result = matchService.joinMatch(memberId, generationRole);
 
-        // 내게는 현재 상태를 알려주는 응답 하나 보내주고
         String selfJson = """
                 {
                   "type":"MATCH_JOIN_RESULT",
@@ -135,7 +139,6 @@ public class QuizSocketHandler extends TextWebSocketHandler {
         );
         session.sendMessage(new TextMessage(selfJson));
 
-        // 방이 생성된 경우 → 양쪽에게 MATCH_FOUND + 이후 ACCEPT 로직은 GameService가 처리
         if (result.getRoomId() != null) {
             gameService.onMatchCreated(result);
         }
@@ -144,9 +147,9 @@ public class QuizSocketHandler extends TextWebSocketHandler {
                 memberId, result.isMatched(), result.getRoomId());
     }
 
-    /**
-     * MATCH_ACCEPT 처리: GameService.handleAccept 호출
-     */
+    // ==========================
+    //  MATCH_ACCEPT
+    // ==========================
     private void handleMatchAccept(JsonNode root, Long memberId) {
         String roomId = root.path("roomId").asText(null);
         boolean accept = root.path("accept").asBoolean(false);
@@ -160,12 +163,140 @@ public class QuizSocketHandler extends TextWebSocketHandler {
         log.info("[WS] MATCH_ACCEPT 처리 완료 memberId={}, roomId={}, accept={}", memberId, roomId, accept);
     }
 
+    // ==========================
+    //  ANSWER_SUBMIT 진입점
+    // ==========================
+    private void handleAnswerSubmit(JsonNode root, Long memberId) {
+        String roomId = root.path("roomId").asText(null);
+        Long questionId = root.path("questionId").asLong();
+        int answerIndex = root.path("answerIndex").asInt(-1);   // 기본값 -1 → 오답 처리
+
+        if (roomId == null) {
+            log.warn("ANSWER_SUBMIT 에 roomId 없음");
+            return;
+        }
+
+        handleAnswer(roomId, memberId, questionId, answerIndex);
+
+        log.info("[WS] ANSWER_SUBMIT 처리 완료 memberId={}, roomId={}, questionId={}, answerIndex={}",
+                memberId, roomId, questionId, answerIndex);
+    }
+
+    // ==========================
+    //  실제 정답 검증 + 점수 계산
+    // ==========================
+    public void handleAnswer(String roomId, Long memberId, Long questionId, int answerIndex) {
+        String roomKey = "match:room:" + roomId;
+        HashOperations<String, Object, Object> ops = redisTemplate.opsForHash();
+
+        Long member1 = toLong(ops.get(roomKey, "member1"));
+        Long member2 = toLong(ops.get(roomKey, "member2"));
+
+        if (member1 == null || member2 == null) return;
+        if (!memberId.equals(member1) && !memberId.equals(member2)) return;
+
+        Long opponentId = memberId.equals(member1) ? member2 : member1;
+
+        // ----------------------
+        // ① 정답 검증 로직 (그대로)
+        // ----------------------
+        boolean isCorrect = false;
+
+        try {
+            if (answerIndex >= 0) {
+                Question question = questionRepository.findById(questionId)
+                        .orElseThrow(() -> new IllegalArgumentException("문제 없음"));
+
+                List<QuizOption> options =
+                        quizOptionRepository.findByQuestionIdOrderByIdAsc(question.getId());
+
+                if (answerIndex < options.size()) {
+                    isCorrect = options.get(answerIndex).isCorrect();
+                }
+            }
+        } catch (Exception e) {
+            isCorrect = false;
+        }
+
+        // ----------------------
+        // ② 점수 갱신 (그대로)
+        // ----------------------
+        Long score1 = toLong(ops.get(roomKey, "score:" + member1));
+        Long score2 = toLong(ops.get(roomKey, "score:" + member2));
+        if (score1 == null) score1 = 0L;
+        if (score2 == null) score2 = 0L;
+
+        if (isCorrect) {
+            if (memberId.equals(member1)) {
+                score1 = ops.increment(roomKey, "score:" + member1, 1L);
+            } else {
+                score2 = ops.increment(roomKey, "score:" + member2, 1L);
+            }
+        }
+
+        // ----------------------
+        // ③ 진행도 업데이트 로직 (단순히 +1만)
+        // ----------------------
+        Long totalQuestions = toLong(ops.get(roomKey, "totalQuestions"));
+        if (totalQuestions == null) totalQuestions = 5L;
+
+        Long myProgress = toLong(ops.get(roomKey, "progress:" + memberId));
+        if (myProgress == null) myProgress = 0L;
+        myProgress = ops.increment(roomKey, "progress:" + memberId, 1L);
+
+        Long oppProgress = toLong(ops.get(roomKey, "progress:" + opponentId));
+        if (oppProgress == null) oppProgress = 0L;
+
+        // ----------------------
+        // 🔥 ④ 마지막 사람이 마지막 문제까지 풀었는지 체크
+        // ----------------------
+        boolean isLastAnswer =
+                myProgress >= totalQuestions && oppProgress >= totalQuestions;
+
+        String eventType = isLastAnswer ? "ANSWER_DONE" : "ANSWER_RESULT";
+
+        // ----------------------
+        // ⑤ JSON 생성 및 전송
+        // ----------------------
+        String answerJson = """
+        {
+          "type": "%s",
+          "roomId": "%s",
+          "questionId": %d,
+          "answeredBy": %d,
+          "correct": %s,
+          "score": {
+            "member1": %d,
+            "member2": %d
+          }
+        }
+        """.formatted(
+                eventType, roomId, questionId, memberId,
+                isCorrect, score1, score2
+        );
+
+        sessionService.sendTo(member1, answerJson);
+        sessionService.sendTo(member2, answerJson);
+    }
+
+
+    private Long toLong(Object value) {
+        if (value == null) return null;
+        if (value instanceof Long l) return l;
+        if (value instanceof Integer i) return i.longValue();
+        if (value instanceof String s) return Long.parseLong(s);
+        throw new IllegalArgumentException("지원하지 않는 숫자 타입: " + value.getClass());
+    }
+
+    // ==========================
+    //  연결 종료
+    // ==========================
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         Long memberId = (Long) session.getAttributes().get("memberId");
         if (memberId != null) {
             sessionService.remove(memberId);
-            log.info("🔌 WebSocket 연결 종료: memberId={}, reason={}", memberId, status);
+            log.info("🔌 WebSocket 종료: memberId={}, reason={}", memberId, status);
         }
     }
 }
