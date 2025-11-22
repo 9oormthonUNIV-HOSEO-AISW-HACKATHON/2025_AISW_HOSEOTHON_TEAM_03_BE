@@ -1,11 +1,10 @@
 package org.hackathon.genon.domain.quizhistory.service;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 
 import java.util.List;
-import org.assertj.core.api.Assertions;
 import org.hackathon.genon.domain.member.entity.Member;
 import org.hackathon.genon.domain.member.enums.GenerationRole;
 import org.hackathon.genon.domain.quiz.entity.Quiz;

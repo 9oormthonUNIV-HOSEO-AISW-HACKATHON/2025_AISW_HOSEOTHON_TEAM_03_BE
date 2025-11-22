@@ -129,6 +129,8 @@ public class QuestionAiService {
                 );
                 quizOptionRepository.save(option);
 
+                question.addOption(option);
+
                 optionDtos.add(new QuestionOptionDto(
                         odto.getContent(),
                         odto.isCorrect()

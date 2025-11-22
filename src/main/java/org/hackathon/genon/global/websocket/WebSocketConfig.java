@@ -1,6 +1,6 @@
 package org.hackathon.genon.global.websocket;
 
-import io.jsonwebtoken.Jwt;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.hackathon.genon.global.security.jwt.JwtProvider;
 import org.springframework.context.annotation.Configuration;
@@ -11,8 +11,6 @@ import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 import org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor;
-
-import java.util.Map;
 
 @Configuration
 @EnableWebSocket // WebSocket 활성화

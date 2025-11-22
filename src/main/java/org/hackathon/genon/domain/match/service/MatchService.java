@@ -1,7 +1,6 @@
 package org.hackathon.genon.domain.match.service;
 
 import java.util.UUID;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hackathon.genon.domain.match.dto.MatchResult;

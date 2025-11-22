@@ -1,5 +1,6 @@
 package org.hackathon.genon.domain.match.service;
 
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hackathon.genon.domain.match.dto.MatchResult;
@@ -8,8 +9,6 @@ import org.hackathon.genon.domain.question.service.QuestionAiService;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Slf4j
 @Service

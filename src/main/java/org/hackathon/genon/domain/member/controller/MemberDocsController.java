@@ -13,11 +13,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.hackathon.genon.domain.member.controller.dto.MemberCreateRequest;
 import org.hackathon.genon.domain.member.service.dto.MemberProfileResponse;
-import org.hackathon.genon.global.annotation.AuthMember;
 import org.hackathon.genon.global.swagger.ApiExceptions;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
 
 @Tag(name = "Member Docs", description = "Member API 문서")
 public abstract class MemberDocsController {
