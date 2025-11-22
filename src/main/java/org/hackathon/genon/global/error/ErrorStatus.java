@@ -26,6 +26,9 @@ public enum ErrorStatus {
     // QUIZ HISTORY
     QUIZ_HISTORY_NOT_FOUND(404," 퀴즈 기록을 찾을 수 없습니다."),
 
+    // QUIZ
+    QUIZ_NOT_FOUND(404,"퀴즈를 찾을 수 없습니다."),
+
     // JWT
     INVALID_TOKEN        (401, "유효하지 않은 JWT 토큰입니다."),
     INVALID_SOCIAL_TOKEN (401, "유효하지 않은 소셜 토큰입니다."),

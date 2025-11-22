@@ -10,6 +10,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hackathon.genon.domain.quiz.enums.QuizType;
 import org.hackathon.genon.global.entity.BaseEntity;
 
 /**
@@ -22,7 +23,8 @@ import org.hackathon.genon.global.entity.BaseEntity;
 public class Quiz extends BaseEntity {
 
     @Column(name = "quiz_type", length = 20, nullable = false)
-    private String quizType;  // ex) "1v1"
+    @Enumerated(EnumType.STRING)
+    private QuizType quizType;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "quiz_status", length = 20, nullable = false)
@@ -32,23 +34,23 @@ public class Quiz extends BaseEntity {
     private LocalDateTime endedAt;
 
     @Builder
-    private Quiz(String quizType, QuizStatus quizStatus) {
+    private Quiz(QuizType quizType, QuizStatus quizStatus) {
         this.quizType = quizType;
         this.quizStatus = quizStatus;
     }
 
-    public static Quiz create(String quizType, QuizStatus quizStatus) {
+    public static Quiz createOneToOne() {
         return Quiz.builder()
-                .quizType(quizType)
-                .quizStatus(quizStatus)
+                .quizType(QuizType.ONE_TO_ONE)
+                .quizStatus(QuizStatus.IN_PROGRESS)
                 .build();
     }
 
-    public void start() {
-        if (this.quizStatus == QuizStatus.FINISHED) {
-            throw new IllegalStateException("종료된 게임은 시작할 수 없습니다.");
-        }
-        this.quizStatus = QuizStatus.IN_PROGRESS;
+    public static Quiz createManyToMany() {
+        return Quiz.builder()
+                .quizType(QuizType.MANY_TO_MANY)
+                .quizStatus(QuizStatus.IN_PROGRESS)
+                .build();
     }
 
     public void finish() {

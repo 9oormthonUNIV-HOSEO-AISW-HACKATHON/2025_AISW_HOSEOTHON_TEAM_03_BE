@@ -17,6 +17,7 @@ import org.hackathon.genon.domain.question.entity.Question;
 import org.hackathon.genon.domain.question.repository.QuestionRepository;
 import org.hackathon.genon.domain.quiz.repository.QuizOptionRepository;
 import org.hackathon.genon.domain.quizoption.entity.QuizOption;
+import org.hackathon.genon.global.error.CoreException;
 import org.hackathon.genon.global.security.jwt.JwtProvider;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -119,7 +120,7 @@ public class QuizSocketHandler extends TextWebSocketHandler {
     // ==========================
     private void handleMatchJoin(WebSocketSession session, Long memberId) throws Exception {
         Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new IllegalArgumentException("회원이 존재하지 않습니다. id=" + memberId));
+                .orElseThrow(() -> new CoreException("회원이 존재하지 않습니다. id=" + memberId));
 
         GenerationRole generationRole = member.getGenerationRole();
 
@@ -129,56 +130,56 @@ public class QuizSocketHandler extends TextWebSocketHandler {
                 {
                   "type":"MATCH_JOIN_RESULT",
                   "matched":%s,
-                  "roomId":%s,
+                  "quizId":%s,
                   "opponentId":%s
                 }
                 """.formatted(
                 result.isMatched(),
-                result.getRoomId() == null ? "null" : "\"" + result.getRoomId() + "\"",
+                result.getQuizId() == null ? "null" : "\"" + result.getQuizId() + "\"",
                 result.getOpponentId() == null ? "null" : result.getOpponentId()
         );
         session.sendMessage(new TextMessage(selfJson));
 
-        if (result.getRoomId() != null) {
+        if (result.getQuizId() != null) {
             gameService.onMatchCreated(result);
         }
 
-        log.info("[WS] MATCH_JOIN 처리 완료 memberId={}, matched={}, roomId={}",
-                memberId, result.isMatched(), result.getRoomId());
+        log.info("[WS] MATCH_JOIN 처리 완료 memberId={}, matched={}, quizId={}",
+                memberId, result.isMatched(), result.getQuizId());
     }
 
     // ==========================
     //  MATCH_ACCEPT
     // ==========================
     private void handleMatchAccept(JsonNode root, Long memberId) {
-        String roomId = root.path("roomId").asText(null);
+        Long quizId = root.path("quizId").asLong();
         boolean accept = root.path("accept").asBoolean(false);
 
-        if (roomId == null) {
-            log.warn("MATCH_ACCEPT 에 roomId 없음");
+        if (quizId == null) {
+            log.warn("MATCH_ACCEPT 에 quizId 없음");
             return;
         }
 
-        gameService.handleAccept(roomId, memberId, accept);
-        log.info("[WS] MATCH_ACCEPT 처리 완료 memberId={}, roomId={}, accept={}", memberId, roomId, accept);
+        gameService.handleAccept(quizId, memberId, accept);
+        log.info("[WS] MATCH_ACCEPT 처리 완료 memberId={}, quizId={}, accept={}", memberId, quizId, accept);
     }
 
     // ==========================
     //  ANSWER_SUBMIT 진입점
     // ==========================
     private void handleAnswerSubmit(JsonNode root, Long memberId) {
-        String roomId = root.path("roomId").asText(null);
+        String roomId = root.path("quizId").asText(null);
         Long questionId = root.path("questionId").asLong();
         int answerIndex = root.path("answerIndex").asInt(-1);   // 기본값 -1 → 오답 처리
 
         if (roomId == null) {
-            log.warn("ANSWER_SUBMIT 에 roomId 없음");
+            log.warn("ANSWER_SUBMIT 에 quizId 없음");
             return;
         }
 
         handleAnswer(roomId, memberId, questionId, answerIndex);
 
-        log.info("[WS] ANSWER_SUBMIT 처리 완료 memberId={}, roomId={}, questionId={}, answerIndex={}",
+        log.info("[WS] ANSWER_SUBMIT 처리 완료 memberId={}, quizId={}, questionId={}, answerIndex={}",
                 memberId, roomId, questionId, answerIndex);
     }
 
@@ -261,7 +262,7 @@ public class QuizSocketHandler extends TextWebSocketHandler {
         String answerJson = """
         {
           "type": "%s",
-          "roomId": "%s",
+          "quizId": "%s",
           "questionId": %d,
           "answeredBy": %d,
           "correct": %s,
