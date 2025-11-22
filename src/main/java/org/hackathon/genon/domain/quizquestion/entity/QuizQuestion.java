@@ -49,4 +49,5 @@ public class QuizQuestion extends BaseEntity {
                 .roundNumber(roundNumber)
                 .build();
     }
+
 }
