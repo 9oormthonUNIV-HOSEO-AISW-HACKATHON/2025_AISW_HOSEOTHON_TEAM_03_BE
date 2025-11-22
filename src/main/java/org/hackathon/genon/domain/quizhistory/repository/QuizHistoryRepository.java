@@ -10,6 +10,7 @@ public interface QuizHistoryRepository extends JpaRepository<QuizHistory, Long> 
 
     @Query("SELECT qh FROM QuizHistory qh JOIN FETCH qh.member WHERE qh.quiz.id = :quizId")
     List<QuizHistory> findAllByQuizIdWithMember(@Param("quizId") Long quizId);
+    List<QuizHistory> findByQuizId(Long quizId);
 
 
 }
