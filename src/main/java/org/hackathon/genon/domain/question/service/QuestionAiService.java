@@ -1,5 +1,6 @@
 package org.hackathon.genon.domain.question.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
@@ -59,15 +60,26 @@ public class QuestionAiService {
 
     @Transactional
     public List<QuestionResponseDto> generateAndReturnQuestionsWithOptions(Long quizId) {
-        AiQuizResponse response = callOpenAiForQuestions();
         Quiz quiz = quizRepository.findById(quizId)
                 .orElseThrow(() -> new CoreException(ErrorStatus.QUIZ_NOT_FOUND));
-        return saveQuestionsToDatabaseAndBuildDto(response.getQuestions(), quiz);
+
+        AiQuizResponse response = null;
+        try {
+            response = callOpenAiForQuestions();
+        } catch (Exception e) {
+            log.warn("OpenAI 호출 실패, 기존 DB 문제로 대체 처리", e);
+        }
+
+        if (response != null && response.getQuestions() != null && !response.getQuestions().isEmpty()) {
+            return saveQuestionsToDatabaseAndBuildDto(response.getQuestions(), quiz);
+        } else {
+            // OpenAI 실패 시 DB에 저장된 문제를 로드하여 DTO 변환 후 반환
+            return loadQuestionsFromDatabaseAsDto(quizId);
+        }
     }
 
     // OpenAI 호출
-    private AiQuizResponse callOpenAiForQuestions() {
-        try {
+    private AiQuizResponse callOpenAiForQuestions() throws JsonProcessingException {
             Map<String, Object> body = buildOpenAiRequestBody();
             HttpHeaders headers = buildOpenAiHeaders();
 
@@ -78,12 +90,31 @@ public class QuestionAiService {
             JsonNode root = objectMapper.readTree(response.getBody());
             String content = root.path("choices").get(0).path("message").path("content").asText();
             return objectMapper.readValue(content, AiQuizResponse.class);
-        } catch (Exception e) {
-            log.error("OpenAI 퀴즈 생성 실패", e);
-            throw new CoreException("OpenAI API 호출 중 오류 발생");
-        }
+
     }
 
+    private List<QuestionResponseDto> loadQuestionsFromDatabaseAsDto(Long quizId) {
+        List<QuizQuestion> quizQuestions = quizQuestionRepository.findAllByQuizId(quizId);
+        List<QuestionResponseDto> result = new ArrayList<>();
+
+        for (QuizQuestion qq : quizQuestions) {
+            Question question = qq.getQuestion();
+
+            List<QuestionOptionDto> optionDtos = question.getOptions().stream()
+                    .map(opt -> new QuestionOptionDto(opt.getContent(), opt.isCorrect()))
+                    .toList();
+
+            QuestionResponseDto dto = new QuestionResponseDto(
+                    question.getId(),
+                    question.getCategory(),
+                    question.getContent(),
+                    question.getExplanation(),
+                    optionDtos
+            );
+            result.add(dto);
+        }
+        return result;
+    }
     private Map<String, Object> buildOpenAiRequestBody() {
         Map<String, Object> body = new HashMap<>();
         body.put("model", model);
