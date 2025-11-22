@@ -293,7 +293,7 @@ public class QuizSocketHandler extends TextWebSocketHandler {
     //  연결 종료
     // ==========================
     @Override
-    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         Long memberId = (Long) session.getAttributes().get("memberId");
         if (memberId != null) {
             sessionService.remove(memberId);
