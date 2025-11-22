@@ -21,7 +21,7 @@ public class RankingController extends RankingDocsController{
     @Override
     @GetMapping("/v1/rankings")
     public ResponseEntity<RankingListResponse> getRankings(
-            @RequestParam @Min(1) int page
+            @RequestParam int page
     ) {
         List<MemberRankingResponse> totalRanking = rankingService.getTotalRanking(new PageRequest(page));
 
