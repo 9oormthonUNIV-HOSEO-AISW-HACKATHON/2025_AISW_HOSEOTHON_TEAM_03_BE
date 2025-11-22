@@ -15,7 +15,7 @@ public class QuizHistoryQueryService {
 
     private final QuizHistoryRepository quizHistoryRepository;
 
-    public List<MemberQuizResult> findQuizResult(Long quizId) {
+    public List<MemberQuizResult> findQuizResult(Long quizId, Long memberId) {
         List<QuizHistory> histories = quizHistoryRepository.findAllByQuizIdWithMember(quizId);
 
         if (histories.isEmpty()) {
@@ -28,9 +28,10 @@ public class QuizHistoryQueryService {
                         h.getScore(),
                         h.getResult(),
                         h.getPointChange(),
-                        h.getMember().getPoints()
+                        h.getMember().getPoints(),
+                        h.getMember().isMe(memberId)
                 ))
                 .toList();
-
     }
+
 }
