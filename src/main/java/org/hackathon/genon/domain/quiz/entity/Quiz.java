@@ -1,9 +1,16 @@
 package org.hackathon.genon.domain.quiz.entity;
 
-import jakarta.persistence.*;
-import lombok.*;
-import org.hackathon.genon.global.entity.BaseEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import org.hackathon.genon.global.entity.BaseEntity;
 
 /**
  * 퀴즈 자체에 대한 메타데이터만 기록합니다.

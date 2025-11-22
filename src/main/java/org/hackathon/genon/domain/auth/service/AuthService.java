@@ -3,7 +3,6 @@ package org.hackathon.genon.domain.auth.service;
 import lombok.RequiredArgsConstructor;
 import org.hackathon.genon.domain.member.entity.Member;
 import org.hackathon.genon.domain.member.repository.MemberRepository;
-import org.hackathon.genon.domain.member.service.MemberCommandService;
 import org.hackathon.genon.global.error.CoreException;
 import org.hackathon.genon.global.error.ErrorStatus;
 import org.hackathon.genon.global.security.jwt.JwtProvider;
