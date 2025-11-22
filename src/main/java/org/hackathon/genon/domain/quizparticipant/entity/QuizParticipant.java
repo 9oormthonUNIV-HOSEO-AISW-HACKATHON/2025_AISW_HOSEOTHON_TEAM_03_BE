@@ -1,6 +1,9 @@
 package org.hackathon.genon.domain.quizparticipant.entity;
 
-import jakarta.persistence.Entity;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hackathon.genon.domain.member.entity.Member;
+import org.hackathon.genon.domain.quiz.entity.Quiz;
 import org.hackathon.genon.global.entity.BaseEntity;
 
 /**
@@ -8,6 +11,30 @@ import org.hackathon.genon.global.entity.BaseEntity;
  * */
 
 @Entity
+@Table(name = "quiz_participant")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class QuizParticipant extends BaseEntity {
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "quiz_id", nullable = false)
+    private Quiz quiz;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "member_id", nullable = false)
+    private Member member;
+
+
+    @Builder
+    private QuizParticipant(Quiz quiz, Member member, String team) {
+        this.quiz = quiz;
+        this.member = member;
+    }
+
+    public static QuizParticipant create(Quiz quiz, Member mem, String team) {
+        return QuizParticipant.builder()
+                .quiz(quiz)
+                .member(mem)
+                .build();
+    }
 }
