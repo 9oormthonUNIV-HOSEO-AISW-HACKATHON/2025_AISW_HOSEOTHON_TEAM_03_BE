@@ -1,11 +1,15 @@
 package org.hackathon.genon.domain.match.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hackathon.genon.domain.match.dto.MatchResult;
 import org.hackathon.genon.domain.question.dto.QuestionResponseDto;
 import org.hackathon.genon.domain.question.service.QuestionAiService;
+import org.hackathon.genon.global.error.CoreException;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -18,6 +22,7 @@ public class GameService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final SessionService sessionService;
     private final QuestionAiService questionAiService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * 매칭 성사 시 양쪽 유저에게 MATCH_FOUND 메시지 전송
@@ -131,41 +136,41 @@ public class GameService {
     /**
      * GAME_START JSON 생성
      */
+
     private String buildGameStartJson(Long quizId, List<QuestionResponseDto> questions) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{");
-        sb.append("\"type\":\"GAME_START\",");
-        sb.append("\"quizId\":\"").append(quizId).append("\",");
-        sb.append("\"questions\":[");
+        ObjectNode root = objectMapper.createObjectNode();
+        root.put("type", "GAME_START");
+        root.put("quizId", quizId);
 
-        for (int i = 0; i < questions.size(); i++) {
-            QuestionResponseDto q = questions.get(i);
+        ArrayNode questionsArray = objectMapper.createArrayNode();
 
-            sb.append("{")
-                    .append("\"id\":").append(q.id()).append(",")
-                    .append("\"category\":\"").append(q.category()).append("\",")
-                    .append("\"content\":\"").append(q.content()).append("\",")
-                    .append("\"explanation\":\"").append(q.explanation()).append("\",");
+        for (QuestionResponseDto q : questions) {
+            ObjectNode questionNode = objectMapper.createObjectNode();
+            questionNode.put("id", q.id());
+            questionNode.put("category", q.category());
+            questionNode.put("content", q.content());
+            questionNode.put("explanation", q.explanation());
 
-            sb.append("\"options\":[");
-            for (int j = 0; j < q.options().size(); j++) {
-                var op = q.options().get(j);
-                sb.append("{")
-                        .append("\"content\":\"").append(op.content()).append("\",")
-                        .append("\"correct\":").append(op.correct())
-                        .append("}");
-
-                if (j < q.options().size() - 1) sb.append(",");
+            ArrayNode optionsArray = objectMapper.createArrayNode();
+            for (var op : q.options()) {
+                ObjectNode optionNode = objectMapper.createObjectNode();
+                optionNode.put("content", op.content());
+                optionNode.put("correct", op.correct());
+                optionsArray.add(optionNode);
             }
-            sb.append("]"); // options 끝
 
-            sb.append("}"); // question 끝
-
-            if (i < questions.size() - 1) sb.append(",");
+            questionNode.set("options", optionsArray);
+            questionsArray.add(questionNode);
         }
 
-        sb.append("]}");
-        return sb.toString();
+        root.set("questions", questionsArray);
+
+        try {
+            return objectMapper.writeValueAsString(root);
+        } catch (Exception e) {
+            // 예외 처리 또는 로그 추가
+            throw new CoreException("JSON 변환 중 오류 발생");
+        }
     }
 
 
