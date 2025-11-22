@@ -22,7 +22,7 @@ public class QuizOption extends BaseEntity {
     @JoinColumn(name = "question_id", nullable = false)   // FK → quiz_question.question_id
     private Question question;
 
-    @Column(name = "content", length = 255, nullable = false)
+    @Column(name = "content", nullable = false)
     private String content;      // 보기 내용
 
     @Column(name = "is_correct", nullable = false)

@@ -5,6 +5,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Builder;
+import org.hackathon.genon.global.entity.BaseEntity;
 
 /**
  * 문제의 순수한 '질문'과 '해설' 정보만 담습니다.
@@ -14,12 +15,7 @@ import lombok.Builder;
 @Table(name = "question")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Question {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "question_id")  // PK, AI
-    private Long questionId;
+public class Question extends BaseEntity {
 
     @Column(name = "category", length = 20, nullable = false)
     private String category;       // 'SENIOR', 'MZ'
