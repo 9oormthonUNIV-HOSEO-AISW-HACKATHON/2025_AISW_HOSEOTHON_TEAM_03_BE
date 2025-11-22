@@ -56,7 +56,7 @@ public class SecurityConfig {
                 .cors(
                         corsCustomizer -> corsCustomizer.configurationSource(request -> {
                             CorsConfiguration config = new CorsConfiguration();
-                            config.setAllowedOrigins(List.of("http://localhost:5173")); // 임시 URL
+                            config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:8080")); // 임시 URL
                             config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE"));
                             config.setAllowedHeaders(List.of("*"));
                             config.setAllowCredentials(true);
