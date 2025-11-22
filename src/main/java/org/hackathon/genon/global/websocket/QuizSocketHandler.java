@@ -4,6 +4,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.hackathon.genon.domain.match.service.SessionService;
 import org.hackathon.genon.global.security.jwt.JwtProvider;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -16,8 +17,8 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 public class QuizSocketHandler extends TextWebSocketHandler {
 
     public static final String ACCESS_TOKEN_PREFIX = "accessToken=";
-    private final ConcurrentHashMap<Long, WebSocketSession> sessions = new ConcurrentHashMap<>();
     private final JwtProvider jwtProvider;
+    private final SessionService sessionService;
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -33,10 +34,9 @@ public class QuizSocketHandler extends TextWebSocketHandler {
 
         // 3. 토큰에서 userId를 추출합니다.
         Long memberId = jwtProvider.getMemberIdFromToken(token);
-
+        sessionService.register(memberId, session);
         // 4. 세션을 맵에 저장합니다. (이제 서버는 누가 연결했는지 알 수 있습니다)
         session.getAttributes().put("memberId", memberId); // 세션 속성에 userId '이름표' 붙이기
-        sessions.put(memberId, session);
 
         log.info("✅ WebSocket 연결 성공: memberId={}, sessionId={}", memberId, session.getId());
     }
@@ -50,4 +50,12 @@ public class QuizSocketHandler extends TextWebSocketHandler {
         return null;
     }
 
+    @Override
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+        Long memberId = (Long) session.getAttributes().get("memberId");
+        if (memberId != null) {
+            sessionService.remove(memberId); // ★ 세션 제거
+            log.info("🔌 WebSocket 연결 종료: memberId={}, reason={}", memberId, status);
+        }
+    }
 }
