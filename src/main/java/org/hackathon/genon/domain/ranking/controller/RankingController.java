@@ -1,11 +1,10 @@
 package org.hackathon.genon.domain.ranking.controller;
 
-import jakarta.validation.constraints.Min;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.hackathon.genon.domain.ranking.controller.dto.RankingListResponse;
 import org.hackathon.genon.domain.ranking.service.RankingService;
 import org.hackathon.genon.domain.ranking.service.dto.MemberRankingResponse;
-import org.hackathon.genon.domain.ranking.controller.dto.RankingListResponse;
 import org.hackathon.genon.global.support.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,7 +20,7 @@ public class RankingController extends RankingDocsController{
     @Override
     @GetMapping("/v1/rankings")
     public ResponseEntity<RankingListResponse> getRankings(
-            @RequestParam @Min(1) int page
+            @RequestParam int page
     ) {
         List<MemberRankingResponse> totalRanking = rankingService.getTotalRanking(new PageRequest(page));
 
