@@ -262,7 +262,17 @@ public class QuizSocketHandler extends TextWebSocketHandler {
             // redisTemplate.delete(roomKey);
         }
 
-        // ⑤ JSON 생성 및 전송 (기존 그대로)
+        // ⬇⬇⬇ 여기부터 추가: member1, member2의 세대 역할 조회해서 MZ/SENIOR 키로 보내기
+
+        Member m1 = memberRepository.findById(member1)
+                .orElseThrow(() -> new CoreException("회원이 존재하지 않습니다. id=" + member1));
+        Member m2 = memberRepository.findById(member2)
+                .orElseThrow(() -> new CoreException("회원이 존재하지 않습니다. id=" + member2));
+
+        String roleKey1 = m1.getGenerationRole().name(); // "MZ" or "SENIOR"
+        String roleKey2 = m2.getGenerationRole().name(); // "MZ" or "SENIOR"
+
+        // ⑤ JSON 생성 및 전송 (score만 MZ/SENIOR 기준으로 변경)
         String answerJson = """
     {
       "type": "%s",
@@ -271,18 +281,21 @@ public class QuizSocketHandler extends TextWebSocketHandler {
       "answeredBy": %d,
       "correct": %s,
       "score": {
-        "member1": %d,
-        "member2": %d
+        "%s": %d,
+        "%s": %d
       }
     }
     """.formatted(
                 eventType, roomId, questionId, memberId,
-                isCorrect, score1, score2
+                isCorrect,
+                roleKey1, score1,
+                roleKey2, score2
         );
 
         sessionService.sendTo(member1, answerJson);
         sessionService.sendTo(member2, answerJson);
     }
+
 
 
     private Long toLong(Object value) {
