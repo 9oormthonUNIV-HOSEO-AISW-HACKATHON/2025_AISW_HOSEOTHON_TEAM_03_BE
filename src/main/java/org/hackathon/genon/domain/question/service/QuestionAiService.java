@@ -11,9 +11,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hackathon.genon.domain.question.dto.AiQuizResponse;
 import org.hackathon.genon.domain.question.dto.AiQuizResponse.AiQuizOptionDto;
-import org.hackathon.genon.domain.question.dto.AiQuizResponse.AiQuizQuestionDto;
-import org.hackathon.genon.domain.question.dto.QuestionOptionDto;
-import org.hackathon.genon.domain.question.dto.QuestionResponseDto;
+import org.hackathon.genon.domain.question.dto.AiQuizResponse.AiQuizQuestion;
+import org.hackathon.genon.domain.question.dto.QuestionOption;
+import org.hackathon.genon.domain.question.dto.QuestionResponse;
 import org.hackathon.genon.domain.question.entity.Question;
 import org.hackathon.genon.domain.question.enums.QuestionsPrompt;
 import org.hackathon.genon.domain.question.repository.QuestionRepository;
@@ -59,7 +59,7 @@ public class QuestionAiService {
     private Integer maxTokens;
 
     @Transactional
-    public List<QuestionResponseDto> generateAndReturnQuestionsWithOptions(Long quizId) {
+    public List<QuestionResponse> generateAndReturnQuestionsWithOptions(Long quizId) {
         Quiz quiz = quizRepository.findById(quizId)
                 .orElseThrow(() -> new CoreException(ErrorStatus.QUIZ_NOT_FOUND));
 
@@ -74,7 +74,7 @@ public class QuestionAiService {
             return saveQuestionsToDatabaseAndBuildDto(response.getQuestions(), quiz);
         } else {
             // OpenAI 실패 시 DB에 저장된 문제를 로드하여 DTO 변환 후 반환
-            return loadQuestionsFromDatabaseAsDto(quizId);
+            return loadQuestionsFromDatabaseAsDto();
         }
     }
 
@@ -93,18 +93,17 @@ public class QuestionAiService {
 
     }
 
-    private List<QuestionResponseDto> loadQuestionsFromDatabaseAsDto(Long quizId) {
-        List<QuizQuestion> quizQuestions = quizQuestionRepository.findAllByQuizId(quizId);
-        List<QuestionResponseDto> result = new ArrayList<>();
+    private List<QuestionResponse> loadQuestionsFromDatabaseAsDto() {
+        List<Question> randomQuestions = questionRepository.findRandomQuestions(5);
+        List<QuestionResponse> result = new ArrayList<>();
 
-        for (QuizQuestion qq : quizQuestions) {
-            Question question = qq.getQuestion();
+        for (Question question : randomQuestions) {
 
-            List<QuestionOptionDto> optionDtos = question.getOptions().stream()
-                    .map(opt -> new QuestionOptionDto(opt.getContent(), opt.isCorrect()))
+            List<QuestionOption> optionDtos = question.getOptions().stream()
+                    .map(opt -> new QuestionOption(opt.getContent(), opt.isCorrect()))
                     .toList();
 
-            QuestionResponseDto dto = new QuestionResponseDto(
+            QuestionResponse dto = new QuestionResponse(
                     question.getId(),
                     question.getCategory(),
                     question.getContent(),
@@ -136,21 +135,21 @@ public class QuestionAiService {
     }
 
     // 전체 생성/저장/DTO 빌드 (각 단계 메서드 분리)
-    private List<QuestionResponseDto> saveQuestionsToDatabaseAndBuildDto(
-            List<AiQuizQuestionDto> aiQuestions, Quiz quiz
+    private List<QuestionResponse> saveQuestionsToDatabaseAndBuildDto(
+            List<AiQuizQuestion> aiQuestions, Quiz quiz
     ) {
-        List<QuestionResponseDto> result = new ArrayList<>();
+        List<QuestionResponse> result = new ArrayList<>();
         int round = 1;
-        for (AiQuizQuestionDto qdto : aiQuestions) {
+        for (AiQuizQuestion qdto : aiQuestions) {
             Question question = saveQuestion(qdto);
             saveQuizQuestion(quiz, question, round++);
-            List<QuestionOptionDto> optionDtos = saveOptionsAndBuildDtos(qdto.getOptions(), question);
+            List<QuestionOption> optionDtos = saveOptionsAndBuildDtos(qdto.getOptions(), question);
             result.add(buildQuestionResponseDto(question, optionDtos));
         }
         return result;
     }
 
-    private Question saveQuestion(AiQuizQuestionDto qdto) {
+    private Question saveQuestion(AiQuizQuestion qdto) {
         Question question = Question.create(
                 qdto.getCategory(),
                 qdto.getContent(),
@@ -164,21 +163,21 @@ public class QuestionAiService {
         quizQuestionRepository.save(quizQuestion);
     }
 
-    private List<QuestionOptionDto> saveOptionsAndBuildDtos(
+    private List<QuestionOption> saveOptionsAndBuildDtos(
             List<AiQuizOptionDto> optionDtos, Question question
     ) {
-        List<QuestionOptionDto> result = new ArrayList<>();
+        List<QuestionOption> result = new ArrayList<>();
         for (AiQuizOptionDto odto : optionDtos) {
             QuizOption option = QuizOption.create(question, odto.getContent(), odto.isCorrect());
             quizOptionRepository.save(option);
             question.addOption(option);
-            result.add(new QuestionOptionDto(odto.getContent(), odto.isCorrect()));
+            result.add(new QuestionOption(odto.getContent(), odto.isCorrect()));
         }
         return result;
     }
 
-    private QuestionResponseDto buildQuestionResponseDto(Question question, List<QuestionOptionDto> optionDtos) {
-        return new QuestionResponseDto(
+    private QuestionResponse buildQuestionResponseDto(Question question, List<QuestionOption> optionDtos) {
+        return new QuestionResponse(
                 question.getId(),
                 question.getCategory(),
                 question.getContent(),
