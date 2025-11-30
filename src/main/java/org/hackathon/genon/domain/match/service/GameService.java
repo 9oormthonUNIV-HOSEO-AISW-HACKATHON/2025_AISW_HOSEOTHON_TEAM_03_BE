@@ -155,7 +155,7 @@ public class GameService {
             for (var op : q.options()) {
                 ObjectNode optionNode = objectMapper.createObjectNode();
                 optionNode.put("content", op.content());
-                optionNode.put("correct", op.correct());
+                //optionNode.put("correct", op.correct());
                 optionsArray.add(optionNode);
             }
 

@@ -110,6 +110,7 @@ public class QuizSocketHandler extends TextWebSocketHandler {
             case "MATCH_JOIN" -> handleMatchJoin(session, memberId);
             case "MATCH_ACCEPT" -> handleMatchAccept(root, memberId);
             case "ANSWER_SUBMIT" -> handleAnswerSubmit(root, memberId);
+            case "MATCH_CANCEL" -> handleMatchCancel(memberId);
             default -> {
                 log.warn("알 수 없는 type: {}", type);
                 session.sendMessage(new TextMessage("{\"type\":\"ERROR\",\"message\":\"UNKNOWN_TYPE\"}"));
@@ -149,6 +150,28 @@ public class QuizSocketHandler extends TextWebSocketHandler {
         log.info("[WS] MATCH_JOIN 처리 완료 memberId={}, matched={}, quizId={}",
                 memberId, result.isMatched(), result.getQuizId());
     }
+
+    // ==========================
+    //  MATCH_CANCEL
+    // ==========================
+    private void handleMatchCancel(Long memberId) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new CoreException("회원이 존재하지 않습니다. id=" + memberId));
+
+        GenerationRole generationRole = member.getGenerationRole();
+
+        matchService.cancelMatch(memberId, generationRole);
+
+        String response = """
+        {
+          "type": "MATCH_CANCEL_OK"
+        }
+        """;
+
+        sessionService.sendTo(memberId, response);
+        log.info("[WS] MATCH_CANCEL 처리 완료 memberId={}", memberId);
+    }
+
 
     // ==========================
     //  MATCH_ACCEPT
@@ -200,20 +223,28 @@ public class QuizSocketHandler extends TextWebSocketHandler {
 
         Long opponentId = memberId.equals(member1) ? member2 : member1;
 
-        // ① 정답 검증
+        // ① 정답 검증 + 정답 인덱스 계산
         boolean isCorrect = false;
+        int correctIndex = -1;
+
         try {
-            if (answerIndex >= 0) {
-                Question question = questionRepository.findById(questionId)
-                        .orElseThrow(() -> new IllegalArgumentException("문제 없음"));
+            Question question = questionRepository.findById(questionId)
+                    .orElseThrow(() -> new IllegalArgumentException("문제 없음"));
 
-                List<QuizOption> options =
-                        quizOptionRepository.findByQuestionIdOrderByIdAsc(question.getId());
+            List<QuizOption> options =
+                    quizOptionRepository.findByQuestionIdOrderByIdAsc(question.getId());
 
-                if (answerIndex < options.size()) {
-                    isCorrect = options.get(answerIndex).isCorrect();
+            for (int i = 0; i < options.size(); i++) {
+                if (options.get(i).isCorrect()) {
+                    correctIndex = i;
+                    break;
                 }
             }
+
+            if (answerIndex >= 0 && answerIndex < options.size()) {
+                isCorrect = options.get(answerIndex).isCorrect();
+            }
+
         } catch (Exception e) {
             isCorrect = false;
         }
@@ -235,20 +266,15 @@ public class QuizSocketHandler extends TextWebSocketHandler {
         Long totalQuestions = toLong(ops.get(roomKey, "totalQuestions"));
         if (totalQuestions == null) totalQuestions = 5L;
 
-        Long myProgress = toLong(ops.get(roomKey, "progress:" + memberId));
-        if (myProgress == null) myProgress = 0L;
-        myProgress = ops.increment(roomKey, "progress:" + memberId, 1L);
-
+        Long myProgress = ops.increment(roomKey, "progress:" + memberId, 1L);
         Long oppProgress = toLong(ops.get(roomKey, "progress:" + opponentId));
         if (oppProgress == null) oppProgress = 0L;
 
-        boolean isLastAnswer =
-                myProgress >= totalQuestions && oppProgress >= totalQuestions;
+        boolean isLastAnswer = myProgress >= totalQuestions && oppProgress >= totalQuestions;
 
         String eventType = isLastAnswer ? "ANSWER_DONE" : "ANSWER_RESULT";
 
         if (isLastAnswer) {
-            // finished 플래그로 한 번만 최종 저장
             Boolean first = ops.putIfAbsent(roomKey, "finished", true);
 
             if (Boolean.TRUE.equals(first)) {
@@ -266,7 +292,6 @@ public class QuizSocketHandler extends TextWebSocketHandler {
                         finalScore1.intValue(), finalScore2.intValue()
                 );
 
-
                 redisTemplate.delete(roomKey);
             }
         }
@@ -276,31 +301,34 @@ public class QuizSocketHandler extends TextWebSocketHandler {
         Member m2 = memberRepository.findById(member2)
                 .orElseThrow(() -> new CoreException("회원이 존재하지 않습니다. id=" + member2));
 
-        String roleKey1 = m1.getGenerationRole().name(); // "MZ" or "SENIOR"
-        String roleKey2 = m2.getGenerationRole().name(); // "MZ" or "SENIOR"
+        String roleKey1 = m1.getGenerationRole().name();
+        String roleKey2 = m2.getGenerationRole().name();
 
+        // ③ 정답 인덱스(correctIndex)를 클라이언트에 반환
         String answerJson = """
-    {
-      "type": "%s",
-      "quizId": "%s",
-      "questionId": %d,
-      "answeredBy": %d,
-      "correct": %s,
-      "score": {
-        "%s": %d,
-        "%s": %d
-      }
-    }
-    """.formatted(
-                eventType, roomId, questionId, memberId,
-                isCorrect,
-                roleKey1, score1,
-                roleKey2, score2
-        );
+            {
+              "type": "%s",
+              "quizId": "%s",
+              "questionId": %d,
+              "answeredBy": %d,
+              "correct": %s,
+              "correctIndex": %d,
+              "score": {
+                "%s": %d,
+                "%s": %d
+              }
+            }
+            """.formatted(
+                            eventType, roomId, questionId, memberId,
+                            isCorrect, correctIndex,
+                            roleKey1, score1,
+                            roleKey2, score2
+                    );
 
         sessionService.sendTo(member1, answerJson);
         sessionService.sendTo(member2, answerJson);
     }
+
 
 
 
