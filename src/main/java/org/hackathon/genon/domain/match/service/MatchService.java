@@ -9,6 +9,8 @@ import org.hackathon.genon.domain.quiz.repository.QuizRepository;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.concurrent.TimeUnit;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -48,11 +50,25 @@ public class MatchService {
         redisTemplate.opsForHash().put(quizKey, "accept:" + memberId, false);
         redisTemplate.opsForHash().put(quizKey, "accept:" + opponentId, false);
 
+        redisTemplate.expire(quizKey, 600, TimeUnit.SECONDS); //TTL 10분
+
         log.info("[MATCH] room created {}: {} <-> {}", quizId, memberId, opponentId);
 
         return MatchResult.matched(quizId, opponentId);
     }
 
+    public void cancelMatch(Long memberId, GenerationRole generationRole) {
+        String myQueueKey = (generationRole == GenerationRole.MZ)
+                ? "queue:MZ"
+                : "queue:SENIOR";
+
+        long removed = redisTemplate.opsForList().remove(myQueueKey, 1, memberId);
+        if (removed > 0) {
+            log.info("[MATCH] {} removed from queue {}", memberId, myQueueKey);
+        } else {
+            log.info("[MATCH] {} not found in queue {} (maybe already matched)", memberId, myQueueKey);
+        }
+    }
     private Long toLong(Object value) {
         if (value == null) return null;
         if (value instanceof Long l) return l;
