@@ -232,7 +232,6 @@ public class QuizSocketHandler extends TextWebSocketHandler {
             }
         }
 
-        // ③ 진행도 업데이트
         Long totalQuestions = toLong(ops.get(roomKey, "totalQuestions"));
         if (totalQuestions == null) totalQuestions = 5L;
 
@@ -243,26 +242,34 @@ public class QuizSocketHandler extends TextWebSocketHandler {
         Long oppProgress = toLong(ops.get(roomKey, "progress:" + opponentId));
         if (oppProgress == null) oppProgress = 0L;
 
-        // 🔥 ④ 마지막 사람이 마지막 문제까지 풀었는지 체크
         boolean isLastAnswer =
                 myProgress >= totalQuestions && oppProgress >= totalQuestions;
 
         String eventType = isLastAnswer ? "ANSWER_DONE" : "ANSWER_RESULT";
 
-        // 🔥 마지막 문제까지 다 풀었으면 히스토리 저장
         if (isLastAnswer) {
-            Long quizId = Long.parseLong(roomId); // roomId == quizId 문자열이라고 가정
-            quizHistoryCommandService.recordFinalResult(
-                    quizId,
-                    member1, member2,
-                    score1.intValue(), score2.intValue()
-            );
+            // finished 플래그로 한 번만 최종 저장
+            Boolean first = ops.putIfAbsent(roomKey, "finished", true);
 
-            // 필요하면 여기서 Redis 방 정리
-            // redisTemplate.delete(roomKey);
+            if (Boolean.TRUE.equals(first)) {
+                Long quizId = Long.parseLong(roomId);
+
+                Long finalScore1 = toLong(ops.get(roomKey, "score:" + member1));
+                Long finalScore2 = toLong(ops.get(roomKey, "score:" + member2));
+
+                if (finalScore1 == null) finalScore1 = 0L;
+                if (finalScore2 == null) finalScore2 = 0L;
+
+                quizHistoryCommandService.recordFinalResult(
+                        quizId,
+                        member1, member2,
+                        finalScore1.intValue(), finalScore2.intValue()
+                );
+
+
+                redisTemplate.delete(roomKey);
+            }
         }
-
-        // ⬇⬇⬇ 여기부터 추가: member1, member2의 세대 역할 조회해서 MZ/SENIOR 키로 보내기
 
         Member m1 = memberRepository.findById(member1)
                 .orElseThrow(() -> new CoreException("회원이 존재하지 않습니다. id=" + member1));
@@ -272,7 +279,6 @@ public class QuizSocketHandler extends TextWebSocketHandler {
         String roleKey1 = m1.getGenerationRole().name(); // "MZ" or "SENIOR"
         String roleKey2 = m2.getGenerationRole().name(); // "MZ" or "SENIOR"
 
-        // ⑤ JSON 생성 및 전송 (score만 MZ/SENIOR 기준으로 변경)
         String answerJson = """
     {
       "type": "%s",
@@ -295,6 +301,7 @@ public class QuizSocketHandler extends TextWebSocketHandler {
         sessionService.sendTo(member1, answerJson);
         sessionService.sendTo(member2, answerJson);
     }
+
 
 
 

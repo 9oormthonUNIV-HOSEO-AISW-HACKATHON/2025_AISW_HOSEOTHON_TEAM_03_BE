@@ -29,7 +29,7 @@ public class MatchService {
 
         // 상대 찾기
         Object popped = redisTemplate.opsForList().leftPop(oppQueueKey);
-        Long opponentId = toLong(popped);   // ★ 수정 포인트
+        Long opponentId = toLong(popped);
 
         if (opponentId == null) {
             // 대기
