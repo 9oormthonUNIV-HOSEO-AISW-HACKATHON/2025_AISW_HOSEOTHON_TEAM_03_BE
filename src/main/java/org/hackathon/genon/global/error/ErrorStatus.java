@@ -19,10 +19,15 @@ public enum ErrorStatus {
     NOT_FOUND_MEMBER       (404, "회원을 찾을 수 없습니다."),
     NOT_FOUND_EMAIL        (404, "존재하지 않는 Email 입니다."),
     DUPLICATE_NICKNAME     (409, "이미 존재하는 닉네임입니다."),
-    DUPLICATE_EMAIL        (409, "이미 존재하는 이메일 입니다."),
+    DUPLICATE_LOGIN_ID     (409, "이미 존재하는 로그인 아이디 입니다."),
     ALREADY_SETUP_PROFILE  (409, "이미 프로필이 설정되어 있습니다."),
     PROFILE_SETUP_REQUIRED (428, "프로필 설정이 필요합니다."),
 
+    // QUIZ HISTORY
+    QUIZ_HISTORY_NOT_FOUND(404," 퀴즈 기록을 찾을 수 없습니다."),
+
+    // QUIZ
+    QUIZ_NOT_FOUND(404,"퀴즈를 찾을 수 없습니다."),
 
     // JWT
     INVALID_TOKEN        (401, "유효하지 않은 JWT 토큰입니다."),
