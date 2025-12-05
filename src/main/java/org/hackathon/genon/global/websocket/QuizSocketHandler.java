@@ -223,7 +223,7 @@ public class QuizSocketHandler extends TextWebSocketHandler {
 
         Long opponentId = memberId.equals(member1) ? member2 : member1;
 
-        // ① 정답 검증 + 정답 인덱스 계산
+        //정답 검증 + 정답 인덱스 계산
         boolean isCorrect = false;
         int correctIndex = -1;
 
@@ -249,7 +249,7 @@ public class QuizSocketHandler extends TextWebSocketHandler {
             isCorrect = false;
         }
 
-        // ② 점수 갱신
+        //점수 갱신
         Long score1 = toLong(ops.get(roomKey, "score:" + member1));
         Long score2 = toLong(ops.get(roomKey, "score:" + member2));
         if (score1 == null) score1 = 0L;
@@ -304,7 +304,7 @@ public class QuizSocketHandler extends TextWebSocketHandler {
         String roleKey1 = m1.getGenerationRole().name();
         String roleKey2 = m2.getGenerationRole().name();
 
-        // ③ 정답 인덱스(correctIndex)를 클라이언트에 반환
+        //정답 인덱스(correctIndex)를 클라이언트에 반환
         String answerJson = """
             {
               "type": "%s",
@@ -341,6 +341,7 @@ public class QuizSocketHandler extends TextWebSocketHandler {
         throw new IllegalArgumentException("지원하지 않는 숫자 타입: " + value.getClass());
     }
 
+    
     // ==========================
     //  연결 종료
     // ==========================
@@ -349,6 +350,10 @@ public class QuizSocketHandler extends TextWebSocketHandler {
         Long memberId = (Long) session.getAttributes().get("memberId");
         if (memberId != null) {
             sessionService.remove(memberId);
+
+            //게임 중 이탈 시 기권 처리
+            gameService.handleForceExit(memberId);
+
             log.info("🔌 WebSocket 종료: memberId={}, reason={}", memberId, status);
         }
     }

@@ -68,6 +68,35 @@ public class QuizHistoryCommandService {
         applyPointChange(member2, delta2);
     }
 
+    @Transactional
+    public void recordForfeitResult(Long quizId,
+                                    Long winnerId,
+                                    Long loserId,
+                                    int winnerScore,
+                                    int loserScore) {
+
+        Quiz quiz = quizRepository.findById(quizId)
+                .orElseThrow(() -> new CoreException("퀴즈가 존재하지 않습니다. id=" + quizId));
+
+        Member winner = memberRepository.findById(winnerId)
+                .orElseThrow(() -> new CoreException("회원이 존재하지 않습니다. id=" + winnerId));
+
+        Member loser = memberRepository.findById(loserId)
+                .orElseThrow(() -> new CoreException("회원이 존재하지 않습니다. id=" + loserId));
+
+        int winDelta  = calculatePointDelta(QuizResult.WIN);
+        int loseDelta = calculatePointDelta(QuizResult.LOSE);
+
+        QuizHistory winHistory  = QuizHistory.create(quiz, winner, winnerScore, QuizResult.WIN,  winDelta);
+        QuizHistory loseHistory = QuizHistory.create(quiz, loser,  loserScore,  QuizResult.LOSE, loseDelta);
+
+        quizHistoryRepository.save(winHistory);
+        quizHistoryRepository.save(loseHistory);
+
+        applyPointChange(winner, winDelta);
+        applyPointChange(loser,  loseDelta);
+    }
+
 
     private int calculatePointDelta(QuizResult result) {
         // 필요하면 값 바꿔도 됨

@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.hackathon.genon.domain.match.dto.MatchResult;
 import org.hackathon.genon.domain.question.dto.QuestionResponse;
 import org.hackathon.genon.domain.question.service.QuestionAiService;
+import org.hackathon.genon.domain.quizhistory.service.QuizHistoryCommandService;
 import org.hackathon.genon.global.error.CoreException;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -23,6 +24,7 @@ public class GameService {
     private final SessionService sessionService;
     private final QuestionAiService questionAiService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final QuizHistoryCommandService quizHistoryCommandService;
 
     /**
      * 매칭 성사 시 양쪽 유저에게 MATCH_FOUND 메시지 전송
@@ -173,6 +175,62 @@ public class GameService {
         }
     }
 
+    public void handleForceExit(Long leaverId) {
+        String roomKey = findRoomKeyByMember(leaverId);
+        if (roomKey == null) return;
+
+        HashOperations<String, Object, Object> ops = redisTemplate.opsForHash();
+
+        Long member1 = toLong(ops.get(roomKey, "member1"));
+        Long member2 = toLong(ops.get(roomKey, "member2"));
+        if (member1 == null || member2 == null) {
+            redisTemplate.delete(roomKey);
+            return;
+        }
+
+        Long winnerId = leaverId.equals(member1) ? member2 : member1;
+        Long loserId  = leaverId;
+
+        Boolean first = ops.putIfAbsent(roomKey, "finished", true);
+        if (!Boolean.TRUE.equals(first)) {
+            return;
+        }
+
+        Long score1 = toLong(ops.get(roomKey, "score:" + member1));
+        Long score2 = toLong(ops.get(roomKey, "score:" + member2));
+        if (score1 == null) score1 = 0L;
+        if (score2 == null) score2 = 0L;
+
+        int winnerScore = winnerId.equals(member1) ? score1.intValue() : score2.intValue();
+        int loserScore  = loserId.equals(member1)  ? score1.intValue() : score2.intValue();
+
+        Long quizId = Long.parseLong(roomKey.replace("match:room:", ""));
+
+        quizHistoryCommandService.recordForfeitResult(
+                quizId,
+                winnerId,
+                loserId,
+                winnerScore,
+                loserScore
+        );
+
+
+        String json = """
+    {
+      "type": "GAME_ENDED",
+      "reason": "OPPONENT_FORFEIT",
+      "quizId": %d,
+      "winnerId": %d,
+      "loserId": %d
+    }
+    """.formatted(quizId, winnerId, loserId);
+
+        sessionService.sendTo(winnerId, json);
+
+        //방 제거
+        redisTemplate.delete(roomKey);
+    }
+
 
     private Long toLong(Object value) {
         if (value == null) return null;
@@ -181,4 +239,17 @@ public class GameService {
         if (value instanceof String s) return Long.parseLong(s);
         throw new IllegalArgumentException("지원하지 않는 숫자 타입: " + value.getClass());
     }
+
+    private String findRoomKeyByMember(Long memberId) {
+        for (String key : redisTemplate.keys("match:room:*")) {
+            HashOperations<String, Object, Object> ops = redisTemplate.opsForHash();
+            Long m1 = toLong(ops.get(key, "member1"));
+            Long m2 = toLong(ops.get(key, "member2"));
+            if (memberId.equals(m1) || memberId.equals(m2)) {
+                return key;
+            }
+        }
+        return null;
+    }
+
 }
